@@ -1,0 +1,32 @@
+# Virtual environment
+.venv/
+
+# VS Code settings
+.vscode/
+
+# YOLO training output
+runs/
+
+# Dataset and training images (generated, not source)
+training_images/
+YOLO_Rat_Dataset/
+
+# Model weights (large binary files)
+*.pt
+
+# Video files
+Videos/
+*.mp4
+*.avi
+*.mov
+
+# Data output files
+model_data/
+*.csv
+*.tiff
+*.tif
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
