@@ -126,7 +126,7 @@ class YOLO11Trainer:
             "path": self.dataset_dir,
             "train": "images/train",
             "val": "images/val",
-            "names": {0: "rat_head"}
+            "names": {0: "rat_head", 1: "rat_body"}
         }
         
         with open(yaml_path, 'w') as f:

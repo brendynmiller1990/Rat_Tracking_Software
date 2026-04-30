@@ -9,7 +9,7 @@ from ultralytics import YOLO
 class RatInferenceTracker:
     def __init__(self, window):
         self.window = window
-        self.window.title("Custom YOLO11 Rat Tracker")
+        self.window.title("Custom YOLO11 Rat Head & Body Tracker")
         
         # Handle window closing to ensure video saves properly
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -69,7 +69,7 @@ class RatInferenceTracker:
             self.cap = cv2.VideoCapture(self.video_path)
             self.fps = self.cap.get(cv2.CAP_PROP_FPS)
             self.frame_count = 0
-            self.tracking_data = [["Frame", "Time_sec", "X_Center", "Y_Center", "Confidence"]] # CSV Headers
+            self.tracking_data = [["Frame", "Time_sec", "Head_X", "Head_Y", "Head_Conf", "Body_X", "Body_Y", "Body_Conf"]] # CSV Headers
             
             # Get video dimensions for the VideoWriter
             width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -112,34 +112,39 @@ class RatInferenceTracker:
                 time_sec = round(self.frame_count / self.fps, 3)
 
                 # 1. Run YOLO Inference
-                results = self.model.predict(frame, verbose=False, conf=0.4) 
+                results = self.model.predict(frame, verbose=False, conf=0.4)
 
-                # 2. Parse Results
+                # 2. Parse Results by class
                 boxes = results[0].boxes
-                
-                if len(boxes) > 0:
-                    best_box = boxes[0]
-                    x1, y1, x2, y2 = best_box.xyxy[0].cpu().numpy()
-                    conf = float(best_box.conf[0].cpu().numpy())
-                    
-                    # Calculate Center Point
+
+                head_x, head_y, head_conf = "", "", ""
+                body_x, body_y, body_conf = "", "", ""
+
+                for box in boxes:
+                    cls = int(box.cls[0].cpu().numpy())
+                    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                    conf = float(box.conf[0].cpu().numpy())
                     cx = int((x1 + x2) / 2)
                     cy = int((y1 + y2) / 2)
 
-                    # Save data
-                    self.tracking_data.append([self.frame_count, time_sec, cx, cy, round(conf, 3)])
+                    if cls == 0:  # rat_head
+                        head_x, head_y, head_conf = cx, cy, round(conf, 3)
+                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                        cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
+                        cv2.putText(frame, f"Head {conf:.2f}", (int(x1), int(y1) - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    elif cls == 1:  # rat_body
+                        body_x, body_y, body_conf = cx, cy, round(conf, 3)
+                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (255, 165, 0), 2)
+                        cv2.circle(frame, (cx, cy), 4, (255, 165, 0), -1)
+                        cv2.putText(frame, f"Body {conf:.2f}", (int(x1), int(y1) - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 165, 0), 2)
 
-                    # Draw Bounding Box (Green)
-                    cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-                    
-                    # Draw Center Dot (Red)
-                    cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
-                    
-                    # Draw text
-                    cv2.putText(frame, f"Rat Head {conf:.2f}", (int(x1), int(y1)-10), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
-                else:
-                    self.tracking_data.append([self.frame_count, time_sec, "", "", "0.0"])
+                self.tracking_data.append([
+                    self.frame_count, time_sec,
+                    head_x, head_y, head_conf,
+                    body_x, body_y, body_conf
+                ])
 
                 # Write the annotated frame to our output video file
                 if self.out_video is not None:
